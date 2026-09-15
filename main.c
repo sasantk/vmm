@@ -2,6 +2,7 @@
 #include <asm/kvm.h>
 #include <fcntl.h>
 #include <linux/kvm.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,14 +25,14 @@ int main(void) {
     fprintf(stderr, "Unsupported Version");
     return EXIT_FAILURE;
   }
-  printf("%d\n", ret);
+  // printf("%d\n", ret);
 
   int vm_fd = ioctl(kvm_fd, KVM_CREATE_VM, 0);
   if (vm_fd < 0) {
     perror("err happens on ioctl");
     return EXIT_FAILURE;
   }
-  printf("%d\n", vm_fd);
+  // printf("%d\n", vm_fd);
   void *addr = mmap(NULL, 32 * 1024, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
@@ -44,6 +45,9 @@ int main(void) {
                                            .guest_phys_addr = 0x0,
                                            .memory_size = 32 * 1024,
                                            .userspace_addr = (uintptr_t)addr};
+
+  uint8_t hlt = 0xF4;
+  *(uint8_t *)addr = hlt;
 
   int register_mem = ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, &mem);
   if (register_mem < 0) {
@@ -73,7 +77,7 @@ int main(void) {
   //   return EXIT_FAILURE;
   // }
 
-  struct kvm_sregs sreg = (struct kvm_sregs){};
+  struct kvm_sregs sreg = (struct kvm_sregs){0};
   int vcpu_sregs = ioctl(vcpu_fd, KVM_GET_SREGS, &sreg);
   if (vcpu_sregs < 0) {
     perror("err happens on querying vcpu_sregs");
@@ -95,13 +99,27 @@ int main(void) {
     return EXIT_FAILURE;
   }
   // For Day4.
-  // struct kvm_run *kvm_run_vcpu = vcpu_addr;
-  int run_vcpu = ioctl(vcpu_fd, KVM_RUN, NULL);
-  if (run_vcpu < 0) {
-    perror("err happens on reg vcpu");
-    return EXIT_FAILURE;
+  struct kvm_run *kvm_run_vcpu = vcpu_addr;
+  bool running = true;
+  while (running) {
+    int run_vcpu = ioctl(vcpu_fd, KVM_RUN, 0);
+    if (run_vcpu < 0) {
+      perror("err happens on reg vcpu");
+      return EXIT_FAILURE;
+    }
+    // printf("%d\n", kvm_run_vcpu->exit_reason);
+    switch (kvm_run_vcpu->exit_reason) {
+    default:
+      running = false;
+      printf("Unexpected Exit: %d\n", kvm_run_vcpu->exit_reason);
+      break;
+    case KVM_EXIT_HLT:
+      running = false;
+      printf("HLT happens %d\n", kvm_run_vcpu->exit_reason);
+      break;
+    }
   }
-  // ###
+
   munmap(vcpu_addr, vcpu_size);
   close(vcpu_fd);
   close(vm_fd);
