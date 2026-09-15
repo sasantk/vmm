@@ -1,3 +1,4 @@
+// #include <asm/kvm.h>
 #include <fcntl.h>
 #include <linux/kvm.h>
 #include <stdio.h>
@@ -21,6 +22,15 @@ int main(void) {
     return EXIT_FAILURE;
   }
   printf("%d\n", ret);
+
+  int vm_fd = ioctl(kvm_fd, KVM_CREATE_VM, 0);
+  if (vm_fd < 0) {
+    perror("err happens on ioctl");
+    return EXIT_FAILURE;
+  }
+  printf("%d\n", vm_fd);
+
+  close(vm_fd);
   close(kvm_fd);
   return EXIT_SUCCESS;
 }
