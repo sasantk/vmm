@@ -1,4 +1,5 @@
 // #include <asm/kvm.h>
+#include <asm/kvm.h>
 #include <fcntl.h>
 #include <linux/kvm.h>
 #include <stdint.h>
@@ -44,12 +45,65 @@ int main(void) {
                                            .memory_size = 32 * 1024,
                                            .userspace_addr = (uintptr_t)addr};
 
-  int register_ret = ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, &mem);
-  if (register_ret < 0) {
+  int register_mem = ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, &mem);
+  if (register_mem < 0) {
     perror("err happens on mem_fd");
     return EXIT_FAILURE;
   }
 
+  int vcpu_fd = ioctl(vm_fd, KVM_CREATE_VCPU, 0);
+  if (vcpu_fd < 0) {
+    perror("err happens on vcpu_fd");
+    return EXIT_FAILURE;
+  }
+
+  int vcpu_size = ioctl(kvm_fd, KVM_GET_VCPU_MMAP_SIZE, NULL);
+  if (vcpu_size < 0) {
+    perror("err happens on querying vcpu size");
+    return EXIT_FAILURE;
+  }
+  void *vcpu_addr =
+      mmap(NULL, vcpu_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu_fd, 0);
+  if (vcpu_addr == MAP_FAILED) {
+    perror("err happens on vcpu mapping");
+    return EXIT_FAILURE;
+  }
+  // if (register_vcpu < 0) {
+  //   perror("err happens on registering vcpu");
+  //   return EXIT_FAILURE;
+  // }
+
+  struct kvm_sregs sreg = (struct kvm_sregs){};
+  int vcpu_sregs = ioctl(vcpu_fd, KVM_GET_SREGS, &sreg);
+  if (vcpu_sregs < 0) {
+    perror("err happens on querying vcpu_sregs");
+    return EXIT_FAILURE;
+  }
+  sreg.cs.selector = 0;
+  sreg.cs.base = 0;
+
+  struct kvm_regs reg = (struct kvm_regs){.rip = 0, .rflags = 0x2};
+  int kvm_set_reg_ret = ioctl(vcpu_fd, KVM_SET_REGS, &reg);
+  if (kvm_set_reg_ret < 0) {
+    perror("err happens on querying vcpu size");
+    return EXIT_FAILURE;
+  }
+
+  int kvm_set_sreg_ret = ioctl(vcpu_fd, KVM_SET_SREGS, &sreg);
+  if (kvm_set_sreg_ret < 0) {
+    perror("err happens on querying vcpu size");
+    return EXIT_FAILURE;
+  }
+  // For Day4.
+  // struct kvm_run *kvm_run_vcpu = vcpu_addr;
+  int run_vcpu = ioctl(vcpu_fd, KVM_RUN, NULL);
+  if (run_vcpu < 0) {
+    perror("err happens on reg vcpu");
+    return EXIT_FAILURE;
+  }
+  // ###
+  munmap(vcpu_addr, vcpu_size);
+  close(vcpu_fd);
   close(vm_fd);
   munmap(addr, 32 * 1024);
   close(kvm_fd);
