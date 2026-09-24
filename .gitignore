@@ -2,4 +2,5 @@
 /main.o
 /kvm-sample
 /compile_commands.json
-/kvm-sample-usan
+/kvm-sample-ubsan
+/kvm-sample-asan
