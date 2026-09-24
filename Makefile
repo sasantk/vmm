@@ -14,6 +14,12 @@ $(TARGET): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(TARGET)-asan: $(SRCS)
+	$(CC) $(CFLAGS) -fsanitize=address -fno-omit-frame-pointer -o $@ $^
+
+$(TARGET)-ubsan: $(SRCS)
+	$(CC) $(CFLAGS) -fsanitize=undefined -fno-omit-frame-pointer -o $@ $^
+
 compiledb:
 	@printf '[\n' > compile_commands.json
 	@i=0; for f in $(SRCS); do \
@@ -27,4 +33,4 @@ compiledb:
 	@printf '\n]\n' >> compile_commands.json
 
 clean:
-	rm -f $(OBJS) $(TARGET) compile_commands.json
+	rm -f $(OBJS) $(TARGET) $(TARGET)-ubsan $(TARGET)-asan compile_commands.json
