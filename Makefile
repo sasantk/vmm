@@ -1,5 +1,5 @@
 CC      := clang
-CFLAGS  := -std=gnu11 -Wall -Wextra -Wpedantic -O2 -g
+CFLAGS  := -std=gnu11 -Wall -Wextra -Wpedantic -O0 -g
 TARGET  := kvm-sample
 SRCS    := $(wildcard *.c)
 OBJS    := $(SRCS:.c=.o)
