@@ -1,24 +1,65 @@
 CC      := clang
-CFLAGS  := -std=gnu11 -Wall -Wextra -Wpedantic -O0 -g
+CFLAGS  := -std=gnu11 -Wall -Wextra -Wpedantic -g
 TARGET  := kvm-sample
 SRCS    := $(wildcard *.c)
 OBJS    := $(SRCS:.c=.o)
+LAST := 100
+NUMBERS := $(shell seq 1 ${LAST})
 
-.PHONY: all clean compiledb
+.PHONY: all clean compiledb release debug asan ubsan smoke run100 asan-check ubsan-check check 
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -O2 -o $@ $^
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -O2 -c $< -o $@
 
-$(TARGET)-asan: $(SRCS)
-	$(CC) $(CFLAGS) -fsanitize=address -fno-omit-frame-pointer -o $@ $^
+release:
+	mkdir -p bin;
+	$(CC) $(CFLAGS) -O2 -o bin/$(TARGET) $(SRCS)
 
-$(TARGET)-ubsan: $(SRCS)
-	$(CC) $(CFLAGS) -fsanitize=undefined -fno-omit-frame-pointer -o $@ $^
+debug:
+	mkdir -p bin;
+	$(CC) $(CFLAGS) -O0 -o bin/$(TARGET)-$@ $(SRCS)
+
+asan: $(SRCS)
+	mkdir -p bin;
+	$(CC) $(CFLAGS) -fsanitize=address -fno-omit-frame-pointer -O1 -o bin/$(TARGET)-$@ $^
+
+ubsan: $(SRCS)
+	mkdir -p bin;
+	$(CC) $(CFLAGS) -fsanitize=undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -O1 -o bin/$(TARGET)-$@ $^
+
+smoke: debug
+	
+	if ! ./bin/kvm-sample-debug >/dev/null ; then\
+		echo "failed";\
+		exit 1;\
+	fi
+
+run100: debug
+	for i in $(NUMBERS); do\
+		if ! ./bin/kvm-sample-debug >/dev/null ; then\
+			echo "failed at run $$i";\
+			exit 1;\
+		fi;\
+	done
+
+asan-check: asan
+	if ! ./bin/kvm-sample-asan >/dev/null ; then\
+		echo "failed at asan-check";\
+		exit 1;\
+	fi
+
+ubsan-check: ubsan
+	if ! ./bin/kvm-sample-ubsan >/dev/null ; then\
+		echo "failed ubsan-check";\
+		exit 1;\
+	fi
+
+check: smoke run100 asan-check ubsan-check release
 
 compiledb:
 	@printf '[\n' > compile_commands.json
@@ -33,4 +74,4 @@ compiledb:
 	@printf '\n]\n' >> compile_commands.json
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(TARGET)-ubsan $(TARGET)-asan compile_commands.json
+	rm -rf bin/ $(OBJS) $(TARGET) compile_commands.json

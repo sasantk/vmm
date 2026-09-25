@@ -27,19 +27,16 @@ int main(void) {
   kvm_fd = open("/dev/kvm", O_CLOEXEC | O_RDWR);
   if (kvm_fd < 0) {
     perror("err on openning /dev/kvm");
-    // return EXIT_FAILURE;
     goto cleanup;
   }
   ret = ioctl(kvm_fd, KVM_GET_API_VERSION, NULL);
   if (ret < 0) {
     perror("err happens on ioctl");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   if (ret != KVM_API_VERSION) {
     fprintf(stderr, "Unsupported Version");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   // printf("%d\n", ret);
 
@@ -47,7 +44,6 @@ int main(void) {
   if (vm_fd < 0) {
     perror("err happens on KVM_CREATE_VM");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   // printf("%d\n", vm_fd);
   addr = mmap(NULL, 32 * 1024, PROT_READ | PROT_WRITE,
@@ -71,32 +67,27 @@ int main(void) {
   if (register_mem < 0) {
     perror("err happens on KVM_SET_USER_MEMORY_REGION ");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   vcpu_fd = ioctl(vm_fd, KVM_CREATE_VCPU, 0);
   if (vcpu_fd < 0) {
     perror("err happens on KVM_CREATE_VCPU");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
 
   vcpu_size = ioctl(kvm_fd, KVM_GET_VCPU_MMAP_SIZE, NULL);
   if (vcpu_size < 0) {
     perror("err happens on querying KVM_GET_VCPU_MMAP_SIZE");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   if ((size_t)vcpu_size < sizeof(struct kvm_run)) {
     fprintf(stderr, "vcpu mmap size is smaller than struct kvm_run\n");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   vcpu_addr =
       mmap(NULL, vcpu_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu_fd, 0);
   if (vcpu_addr == MAP_FAILED) {
     perror("err happens on vcpu_addr");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   // if (register_vcpu < 0) {
   //   perror("err happens on registering vcpu");
@@ -108,7 +99,6 @@ int main(void) {
   if (vcpu_sregs < 0) {
     perror("err happens on querying vcpu_sregs");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
   sreg.cs.selector = 0;
   sreg.cs.base = 0;
@@ -118,7 +108,6 @@ int main(void) {
   if (kvm_set_reg_ret < 0) {
     perror("err happens on querying KVM_SET_REGS");
     goto cleanup;
-    // return EXIT_FAILURE;
   }
 
   kvm_set_sreg_ret = ioctl(vcpu_fd, KVM_SET_SREGS, &sreg);
@@ -153,15 +142,30 @@ int main(void) {
 
 cleanup:
   if (vcpu_addr != MAP_FAILED)
-    munmap(vcpu_addr, vcpu_size);
+    if (munmap(vcpu_addr, vcpu_size) != 0) {
+      perror("munmap vcpu_addr");
+      status = EXIT_FAILURE;
+    }
   if (vcpu_fd >= 0)
-    close(vcpu_fd);
+    if (close(vcpu_fd) != 0) {
+      perror("close vcpu_fd");
+      status = EXIT_FAILURE;
+    }
   if (vm_fd >= 0)
-    close(vm_fd);
+    if (close(vm_fd) != 0) {
+      perror("close vm_fd");
+      status = EXIT_FAILURE;
+    }
   if (addr != MAP_FAILED)
-    munmap(addr, 32 * 1024);
+    if (munmap(addr, 32 * 1024) != 0) {
+      perror("munmap addr");
+      status = EXIT_FAILURE;
+    }
   if (kvm_fd >= 0)
-    close(kvm_fd);
+    if (close(kvm_fd) != 0) {
+      perror("close kvm_fd");
+      status = EXIT_FAILURE;
+    }
 
   return status;
 }
