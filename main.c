@@ -6,8 +6,10 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 int main(void) {
 
@@ -60,8 +62,10 @@ int main(void) {
                                            .memory_size = 32 * 1024,
                                            .userspace_addr = (uintptr_t)addr};
 
-  uint8_t hlt = 0xF4;
-  *(uint8_t *)addr = hlt;
+  uint8_t sampleCode[] = {0xb9, 0x10, 0x27, 0xb0, 0x2a,
+                          0xe6, 0xe9, 0xe2, 0xfc, 0xf4};
+  memcpy(addr, sampleCode, sizeof(sampleCode));
+  // *(uint8_t *)addr = *sampleCode;
 
   register_mem = ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, &mem);
   if (register_mem < 0) {
@@ -119,7 +123,17 @@ int main(void) {
   // For Day4.
   struct kvm_run *kvm_run_vcpu = vcpu_addr;
   bool running = true;
+  uint64_t userspace_exits = 0;
+  uint64_t io_exits = 0;
+  uint64_t hlt_exits = 0;
+  bool io_validation_ok = true;
+  struct timespec start;
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &start) == -1) {
+    perror("clock_gettime");
+    goto cleanup;
+  }
   while (running) {
+
     int run_vcpu = ioctl(vcpu_fd, KVM_RUN, 0);
     if (run_vcpu < 0) {
       perror("err happens on reg KVM_RUN");
@@ -134,12 +148,68 @@ int main(void) {
       break;
     case KVM_EXIT_HLT:
       running = false;
-      status = EXIT_SUCCESS;
-      printf("HLT happens %u\n", kvm_run_vcpu->exit_reason);
+      hlt_exits++;
+      break;
+    case KVM_EXIT_IO: {
+      uint8_t *out = (uint8_t *)vcpu_addr + kvm_run_vcpu->io.data_offset;
+      uint8_t size = kvm_run_vcpu->io.size;
+      uint8_t direction = kvm_run_vcpu->io.direction;
+      uint16_t port = kvm_run_vcpu->io.port;
+      uint32_t count = kvm_run_vcpu->io.count;
+      // EXIT_IO happens exit-reason 2
+      // EXIT_IO happens io.direction 1
+      // EXIT_IO happens io.size 1
+      // EXIT_IO happens io.port 233
+      // EXIT_IO happens io.count 1
+      // EXIT_IO happens io.data_offset 4096
+      // EXIT_IO happens Out: 42
+      if (*out == 42 && size == 1 && direction == KVM_EXIT_IO_OUT &&
+          port == 0xe9 && count == 1)
+        io_exits++;
+      else {
+        status = EXIT_FAILURE;
+        running = false;
+        io_validation_ok = false;
+        break;
+      }
+
+      // printf("EXIT_IO happens exit-reason %u\n", kvm_run_vcpu->exit_reason);
+      // printf("EXIT_IO happens io.direction %u\n",
+      // kvm_run_vcpu->io.direction); printf("EXIT_IO happens io.size %u\n",
+      // kvm_run_vcpu->io.size); printf("EXIT_IO happens io.port %u\n",
+      // kvm_run_vcpu->io.port); printf("EXIT_IO happens io.count %u\n",
+      // kvm_run_vcpu->io.count); printf("EXIT_IO happens io.data_offset
+      // %llu\n",
+      //        kvm_run_vcpu->io.data_offset);
+      // uint8_t *out = (uint8_t *)vcpu_addr + kvm_run_vcpu->io.data_offset;
+      // printf("EXIT_IO happens Out: %u\n", *out);
       break;
     }
+    }
+    userspace_exits++;
   }
 
+  struct timespec end;
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &end) == -1) {
+    perror("clock_gettime");
+    goto cleanup;
+  }
+
+  uint64_t runtime_ns =
+      (end.tv_sec - start.tv_sec) * 1000000000 + (end.tv_nsec - start.tv_nsec);
+  // printf("io_exits: %lu\n", io_exits);
+  // printf("hlt_exits: %lu\n", hlt_exits);
+  // printf("userspace_exits: %lu\n", userspace_exits);
+  // printf("PIO userspace-exit workload runtime: %lu\n", runtime_ns);
+
+  printf("workload=pio iterations=10000 runtime_ns=%lu userspace_exits=%lu "
+         "io_exits=%lu hlt_exits=%lu\n",
+         runtime_ns, userspace_exits, io_exits, hlt_exits);
+
+  status = EXIT_SUCCESS;
+  if (io_exits != 10000 || hlt_exits != 1 || userspace_exits != 10001 ||
+      !io_validation_ok)
+    status = EXIT_FAILURE;
 cleanup:
   if (vcpu_addr != MAP_FAILED)
     if (munmap(vcpu_addr, vcpu_size) != 0) {

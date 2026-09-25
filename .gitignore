@@ -5,3 +5,5 @@
 /kvm-sample-ubsan
 /kvm-sample-asan
 /bin/*
+/guest.o
+/guest.bin
