@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/d3-flame-graph@5.0.0/dist/d3-flamegraph.css"
+  >
+</head>
+
+<body>
+  <h3>d3-flame-graph test</h3>
+
+  <pre id="status">starting...</pre>
+  <div id="chart"></div>
+
+  <script src="https://d3js.org/d3.v7.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@5.0.0/dist/d3-flamegraph.umd.min.js"></script>
+
+<script>
+  const status = document.getElementById("status");
+
+  try {
+    status.textContent =
+      "d3: " + typeof d3 +
+      "\nflamegraph: " + typeof flamegraph +
+      "\nflamegraph.default: " + typeof flamegraph.default;
+
+    const chart = flamegraph.default()
+      .width(1200);
+
+    d3.json("data.json")
+      .then(data => {
+        status.textContent += "\ndata.json loaded";
+
+        d3.select("#chart")
+          .datum(data)
+          .call(chart);
+      })
+      .catch(error => {
+        status.textContent += "\nJSON/render error: " + error;
+        console.error(error);
+      });
+
+  } catch (error) {
+    status.textContent += "\nJS error: " + error;
+    console.error(error);
+  }
+</script>
+</body>
+</html>

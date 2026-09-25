@@ -1,0 +1,96 @@
+=== Week 02 benchmark environment ===
+
+--- Git ---
+bc5ecdc98db0ecc01123dd46c3b142d666dbae92
+?? reports/week-02-environment.txt
+
+--- Kernel ---
+Linux sasan-thp 7.2.6-tkg-eevdf #1 SMP PREEMPT_DYNAMIC TKG Wed Sep 16 18:03:27 CEST 2026 x86_64 GNU/Linux
+
+--- CPU model ---
+Architecture:                            x86_64
+CPU(s):                                  24
+On-line CPU(s) list:                     0-23
+Model name:                              AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M
+Thread(s) per core:                      2
+Core(s) per socket:                      12
+Socket(s):                               1
+CPU(s) scaling MHz:                      50%
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-23
+
+--- Microcode ---
+microcode	: 0xb204037
+
+--- Compiler ---
+Debian clang version 19.1.7 (3+b1)
+
+--- Compile flags ---
+-std=gnu11 -Wall -Wextra -Wpedantic -g -O2
+
+--- NUMA / CPU topology ---
+CPU CORE SOCKET NODE    MAXMHZ   MINMHZ ONLINE
+  0    0      0    0 5157.8950 605.2640    yes
+  1    1      0    0 5157.8950 605.2640    yes
+  2    2      0    0 5157.8950 605.2640    yes
+  3    3      0    0 5157.8950 605.2640    yes
+  4    4      0    0 3289.4741 605.2640    yes
+  5    5      0    0 3289.4741 605.2640    yes
+  6    6      0    0 3289.4741 605.2640    yes
+  7    7      0    0 3289.4741 605.2640    yes
+  8    8      0    0 3289.4741 605.2640    yes
+  9    9      0    0 3289.4741 605.2640    yes
+ 10   10      0    0 3289.4741 605.2640    yes
+ 11   11      0    0 3289.4741 605.2640    yes
+ 12    0      0    0 5157.8950 605.2640    yes
+ 13    1      0    0 5157.8950 605.2640    yes
+ 14    2      0    0 5157.8950 605.2640    yes
+ 15    3      0    0 5157.8950 605.2640    yes
+ 16    4      0    0 3289.4741 605.2640    yes
+ 17    5      0    0 3289.4741 605.2640    yes
+ 18    6      0    0 3289.4741 605.2640    yes
+ 19    7      0    0 3289.4741 605.2640    yes
+ 20    8      0    0 3289.4741 605.2640    yes
+ 21    9      0    0 3289.4741 605.2640    yes
+ 22   10      0    0 3289.4741 605.2640    yes
+ 23   11      0    0 3289.4741 605.2640    yes
+
+--- CPU governor ---
+powersave
+
+--- Host load ---
+ 18:32:49 up 9 days, 19 min,  1 user,  load average: 1.00, 1.38, 1.39
+1.00 1.38 1.39 1/3181 977415
+
+--- Mitigations ---
+/sys/devices/system/cpu/vulnerabilities/gather_data_sampling:Not affected
+/sys/devices/system/cpu/vulnerabilities/ghostwrite:Not affected
+/sys/devices/system/cpu/vulnerabilities/indirect_target_selection:Not affected
+/sys/devices/system/cpu/vulnerabilities/itlb_multihit:Not affected
+/sys/devices/system/cpu/vulnerabilities/l1tf:Not affected
+/sys/devices/system/cpu/vulnerabilities/mds:Not affected
+/sys/devices/system/cpu/vulnerabilities/meltdown:Not affected
+/sys/devices/system/cpu/vulnerabilities/mmio_stale_data:Not affected
+/sys/devices/system/cpu/vulnerabilities/old_microcode:Not affected
+/sys/devices/system/cpu/vulnerabilities/reg_file_data_sampling:Not affected
+/sys/devices/system/cpu/vulnerabilities/retbleed:Not affected
+/sys/devices/system/cpu/vulnerabilities/spec_rstack_overflow:Mitigation: IBPB on VMEXIT only
+/sys/devices/system/cpu/vulnerabilities/spec_store_bypass:Mitigation: Speculative Store Bypass disabled via prctl
+/sys/devices/system/cpu/vulnerabilities/spectre_v1:Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+/sys/devices/system/cpu/vulnerabilities/spectre_v2:Mitigation: Enhanced / Automatic IBRS; IBPB: conditional; STIBP: always-on; PBRSB-eIBRS: Not affected; BHI: Not affected
+/sys/devices/system/cpu/vulnerabilities/srbds:Not affected
+/sys/devices/system/cpu/vulnerabilities/tsa:Not affected
+/sys/devices/system/cpu/vulnerabilities/tsx_async_abort:Not affected
+/sys/devices/system/cpu/vulnerabilities/vmscape:Mitigation: IBPB on VMEXIT
+
+--- Guest configuration ---
+real-mode x86 guest
+10000 scalar OUT instructions
+I/O port: 0xe9
+OUT value: 42
+HLT after workload
+guest memory: 32 KiB
+vCPU count: 1
+
+--- QEMU ---
+not used

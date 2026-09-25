@@ -1,0 +1,16 @@
+# started on Fri Sep 25 17:55:48 2026
+
+
+ Performance counter stats for './bin/kvm-sample':
+
+       163,688,611      cycles:H                                                              
+        33,505,728      instructions:H                   #    0.20  insn per cycle            
+         7,029,175      cycles:G                                                              
+            20,006      instructions:G                   #    0.00  insn per cycle            
+
+       0.064446685 seconds time elapsed
+
+       0.023066000 seconds user
+       0.025239000 seconds sys
+
+

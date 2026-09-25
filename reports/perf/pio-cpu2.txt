@@ -1,0 +1,22 @@
+# started on Fri Sep 25 17:47:31 2026
+
+
+ Performance counter stats for './bin/kvm-sample':
+
+             47.69 msec task-clock:u                     #    0.627 CPUs utilized             
+                 0      context-switches:u               #    0.000 /sec                      
+                 0      cpu-migrations:u                 #    0.000 /sec                      
+                60      page-faults:u                    #    1.258 K/sec                     
+         2,932,977      cycles:u                         #    0.062 GHz                       
+         2,062,355      stalled-cycles-frontend:u        #   70.32% frontend cycles idle      
+           673,882      instructions:u                   #    0.23  insn per cycle            
+                                                  #    3.06  stalled cycles per insn   
+           118,017      branches:u                       #    2.475 M/sec                     
+            42,770      branch-misses:u                  #   36.24% of all branches           
+
+       0.076095438 seconds time elapsed
+
+       0.019961000 seconds user
+       0.027889000 seconds sys
+
+
