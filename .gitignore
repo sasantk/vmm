@@ -7,3 +7,6 @@
 /bin/*
 /guest.o
 /guest.bin
+/bench/summarize.py
+/data/processed
+/data/raw

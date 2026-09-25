@@ -6,7 +6,7 @@ OBJS    := $(SRCS:.c=.o)
 LAST := 100
 NUMBERS := $(shell seq 1 ${LAST})
 
-.PHONY: all clean compiledb release debug asan ubsan smoke run100 asan-check ubsan-check check 
+.PHONY: all clean compiledb release debug asan ubsan smoke run100 asan-check ubsan-check check bench 
 
 all: $(TARGET)
 
@@ -75,3 +75,6 @@ compiledb:
 
 clean:
 	rm -rf bin/ $(OBJS) $(TARGET) compile_commands.json
+
+bench: release
+	@SKIP_BUILD=1 CPU=$(CPU) ./bench/run-pio.sh
