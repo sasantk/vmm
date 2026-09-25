@@ -5,8 +5,8 @@
 /kvm-sample-ubsan
 /kvm-sample-asan
 /bin/*
-/guest.o
-/guest.bin
+/guest*.o
+/guest*.bin
 /bench/summarize.py
 /data/processed
 /data/raw

@@ -10,11 +10,11 @@ NUMBERS := $(shell seq 1 ${LAST})
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -O2 -o $@ $^
+# $(TARGET): $(OBJS)
+# 	$(CC) $(CFLAGS) -O2 -o $@ $^
 
-%.o: %.c
-	$(CC) $(CFLAGS) -O2 -c $< -o $@
+# %.o: %.c
+# 	$(CC) $(CFLAGS) -O2 -c $< -o $@
 
 release:
 	mkdir -p bin;

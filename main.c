@@ -11,7 +11,85 @@
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
-int main(void) {
+
+static const uint8_t guest_hlt[] = {
+    0xf4,
+};
+
+static const uint8_t guest_loop[] = {
+    0xb9, 0x10, 0x27, /* mov cx, 10000 */
+    0x90,             /* nop */
+    0xe2, 0xfd,       /* loop -3 */
+    0xf4,             /* hlt */
+};
+
+static const uint8_t guest_pio[] = {
+    0xb9, 0x10, 0x27, /* mov cx, 10000 */
+    0xb0, 0x2a,       /* mov al, 42 */
+    0xe6, 0xe9,       /* out 0xe9, al */
+    0xe2, 0xfc,       /* loop -4 */
+    0xf4,             /* hlt */
+};
+
+static const uint8_t guest_cpuid[] = {
+    0x66, 0xb8, 0x00, 0x00, 0x00, 0x00, /* mov eax, 0 */
+    0x0f, 0xa2,                         /* cpuid */
+    0xf4,                               /* hlt */
+};
+
+struct workload {
+  const char *name;
+
+  const uint8_t *code;
+  size_t code_size;
+
+  uint64_t iterations;
+
+  uint64_t expected_userspace_exits;
+  uint64_t expected_io_exits;
+  uint64_t expected_hlt_exits;
+};
+
+static const struct workload workloads[] = {
+    {
+        .name = "hlt",
+        .code = guest_hlt,
+        .code_size = sizeof(guest_hlt),
+        .iterations = 1,
+        .expected_userspace_exits = 1,
+        .expected_io_exits = 0,
+        .expected_hlt_exits = 1,
+    },
+    {
+        .name = "loop",
+        .code = guest_loop,
+        .code_size = sizeof(guest_loop),
+        .iterations = 10000,
+        .expected_userspace_exits = 1,
+        .expected_io_exits = 0,
+        .expected_hlt_exits = 1,
+    },
+    {
+        .name = "pio",
+        .code = guest_pio,
+        .code_size = sizeof(guest_pio),
+        .iterations = 10000,
+        .expected_userspace_exits = 10001,
+        .expected_io_exits = 10000,
+        .expected_hlt_exits = 1,
+    },
+    {
+        .name = "cpuid",
+        .code = guest_cpuid,
+        .code_size = sizeof(guest_cpuid),
+        .iterations = 1,
+        .expected_userspace_exits = 1,
+        .expected_io_exits = 0,
+        .expected_hlt_exits = 1,
+    },
+};
+
+int main(int argc, char **argv) {
 
   int status = EXIT_FAILURE;
   int ret = -1;
@@ -19,12 +97,34 @@ int main(void) {
   int vm_fd = -1;
   int register_mem = -1;
   int vcpu_fd = -1;
+  int cpuid_set_ret = -1;
   int vcpu_size = -1;
   int vcpu_sregs = -1;
   int kvm_set_reg_ret = -1;
   int kvm_set_sreg_ret = -1;
   void *addr = MAP_FAILED;
   void *vcpu_addr = MAP_FAILED;
+  struct kvm_cpuid2 *cpuid = NULL;
+  size_t nent = 100;
+
+  const struct workload *workload = NULL;
+
+  if (argc != 2) {
+    fprintf(stderr, "usage: %s <hlt|loop|pio|cpuid>\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  for (size_t i = 0; i < sizeof(workloads) / sizeof(workloads[0]); i++) {
+    if (strcmp(argv[1], workloads[i].name) == 0) {
+      workload = &workloads[i];
+      break;
+    }
+  }
+
+  if (workload == NULL) {
+    fprintf(stderr, "unknown workload: %s\n", argv[1]);
+    return EXIT_FAILURE;
+  }
 
   kvm_fd = open("/dev/kvm", O_CLOEXEC | O_RDWR);
   if (kvm_fd < 0) {
@@ -41,6 +141,28 @@ int main(void) {
     goto cleanup;
   }
   // printf("%d\n", ret);
+
+  cpuid = calloc(1, sizeof(struct kvm_cpuid2) +
+                        nent * sizeof(struct kvm_cpuid_entry2));
+  if (cpuid == NULL) {
+    perror("malloc cpuid");
+    goto cleanup;
+  }
+  cpuid->nent = nent;
+  int cpuid_ret = ioctl(kvm_fd, KVM_GET_SUPPORTED_CPUID, cpuid);
+  if (cpuid_ret < 0) {
+    perror("KVM_GET_SUPPORTED_CPUID");
+    goto cleanup;
+  }
+
+  // printf("cpuid nent: %u\n", cpuid->nent);
+  // for (uint32_t i = 0; i < cpuid->nent && i < 3; i++) {
+  //   struct kvm_cpuid_entry2 *e = &cpuid->entries[i];
+
+  //   printf("entry[%u]: function=0x%x index=0x%x "
+  //          "eax=0x%x ebx=0x%x ecx=0x%x edx=0x%x\n",
+  //          i, e->function, e->index, e->eax, e->ebx, e->ecx, e->edx);
+  // }
 
   vm_fd = ioctl(kvm_fd, KVM_CREATE_VM, 0);
   if (vm_fd < 0) {
@@ -62,9 +184,10 @@ int main(void) {
                                            .memory_size = 32 * 1024,
                                            .userspace_addr = (uintptr_t)addr};
 
-  uint8_t sampleCode[] = {0xb9, 0x10, 0x27, 0xb0, 0x2a,
-                          0xe6, 0xe9, 0xe2, 0xfc, 0xf4};
-  memcpy(addr, sampleCode, sizeof(sampleCode));
+  // uint8_t sampleCode[] = {0xb9, 0x10, 0x27, 0xb0, 0x2a,
+  //                         0xe6, 0xe9, 0xe2, 0xfc, 0xf4};
+  // uint8_t sampleCode[] = {0xb9, 0x10, 0x27, 0x90, 0xe2, 0xfd, 0xf4};
+  memcpy(addr, workload->code, workload->code_size);
   // *(uint8_t *)addr = *sampleCode;
 
   register_mem = ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, &mem);
@@ -75,6 +198,12 @@ int main(void) {
   vcpu_fd = ioctl(vm_fd, KVM_CREATE_VCPU, 0);
   if (vcpu_fd < 0) {
     perror("err happens on KVM_CREATE_VCPU");
+    goto cleanup;
+  }
+
+  cpuid_set_ret = ioctl(vcpu_fd, KVM_SET_CPUID2, cpuid);
+  if (cpuid_set_ret < 0) {
+    perror("err happens on KVM_SET_CPUID2");
     goto cleanup;
   }
 
@@ -163,6 +292,11 @@ int main(void) {
       // EXIT_IO happens io.count 1
       // EXIT_IO happens io.data_offset 4096
       // EXIT_IO happens Out: 42
+      if (strcmp(workload->name, "pio") != 0) {
+        running = false;
+        status = EXIT_FAILURE;
+        break;
+      }
       if (*out == 42 && size == 1 && direction == KVM_EXIT_IO_OUT &&
           port == 0xe9 && count == 1)
         io_exits++;
@@ -202,14 +336,22 @@ int main(void) {
   // printf("userspace_exits: %lu\n", userspace_exits);
   // printf("PIO userspace-exit workload runtime: %lu\n", runtime_ns);
 
-  printf("workload=pio iterations=10000 runtime_ns=%lu userspace_exits=%lu "
-         "io_exits=%lu hlt_exits=%lu\n",
-         runtime_ns, userspace_exits, io_exits, hlt_exits);
-
-  status = EXIT_SUCCESS;
-  if (io_exits != 10000 || hlt_exits != 1 || userspace_exits != 10001 ||
-      !io_validation_ok)
+  // printf("workload=pio iterations=10000 runtime_ns=%lu userspace_exits=%lu "
+  //        "io_exits=%lu hlt_exits=%lu\n",
+  //        runtime_ns, userspace_exits, io_exits, hlt_exits);
+  if (io_exits != workload->expected_io_exits ||
+      hlt_exits != workload->expected_hlt_exits ||
+      userspace_exits != workload->expected_userspace_exits ||
+      !io_validation_ok) {
     status = EXIT_FAILURE;
+  } else {
+    status = EXIT_SUCCESS;
+  }
+  printf("workload=%s iterations=%lu runtime_ns=%lu "
+         "userspace_exits=%lu io_exits=%lu hlt_exits=%lu\n",
+         workload->name, workload->iterations, runtime_ns, userspace_exits,
+         io_exits, hlt_exits);
+
 cleanup:
   if (vcpu_addr != MAP_FAILED)
     if (munmap(vcpu_addr, vcpu_size) != 0) {
@@ -236,6 +378,7 @@ cleanup:
       perror("close kvm_fd");
       status = EXIT_FAILURE;
     }
+  free(cpuid);
 
   return status;
 }
